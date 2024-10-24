@@ -1,0 +1,5 @@
+## ffplay, cycle through hourly videos
+for f in $(ls *.mp4 | sort -n); do s=$(echo $f | cut -f 1 -d'-');  ffplay -fs -autoexit -seek_interval 2 -vf "drawtext=text='$s - %{pts\:hms}':box=1:x=(w-tw)/2:y=h-(2*lh):fontsize=32" $f; don
+
+## generate single day file list
+find . -name "*.mp4" -exec basename {} \; | sort -n > ${WD}/${CAMERA}_${DATE}_file.list
