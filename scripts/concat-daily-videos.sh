@@ -6,15 +6,15 @@ if [ -z "$1" ]; then
 fi
 
 # top-level directory of camera videos, children must be date based directories
-wd="$(pwd)/$1"
-for d in $(ls -d ${wd}/*); do
+wd="$(pwd)"
+for d in $(find $1  -mindepth 1 -maxdepth 1 -type d); do
     cd ${wd}
     cd ${d}
 
     # get the date from the directory we're in
     g=$(basename $PWD)
     # remove any top-level mp4s (in case we already had generated something)
-    rm ${g}.mp4
+    rm ${g}.mp4 2>/dev/null
 
     # find any mp4s in the date directory below current dir
     find . -mindepth 2 -name "*.mp4" | sort -n > inputs.txt
