@@ -22,29 +22,6 @@ video_params = { 'codec_name': 'hevc',
                  'avg_frame_rate': '10/1',
                }
 
-#https://stackoverflow.com/questions/20248355/how-to-get-python-to-gracefully-format-none-and-non-existing-fields
-class PartialFormatter(string.Formatter):
-    def __init__(self, missing='None', bad_fmt='!!'):
-        self.missing, self.bad_fmt=missing, bad_fmt
-
-    def get_field(self, field_name, args, kwargs):
-        # Handle a key not found
-        try:
-            val=super(PartialFormatter, self).get_field(field_name, args, kwargs)
-            # Python 3, 'super().get_field(field_name, args, kwargs)' works
-        except (KeyError, AttributeError):
-            val=None,field_name 
-        return val 
-
-    def format_field(self, value, spec):
-        # handle an invalid format
-        if value == None: return super(PartialFormatter, self).format_field(self.missing, spec)
-        try:
-            return super(PartialFormatter, self).format_field(value, spec)
-        except ValueError:
-            if self.bad_fmt is not None: return self.bad_fmt   
-            else: raise
-
 def count_existing_images(path_prefix: str ) -> int:
     max_seen = 0
 
@@ -112,7 +89,6 @@ if __name__=="__main__":
     parser.add_argument("--dryrun", action='store_true', help="report cuts found in input file, don't generate images")
    
     args = parser.parse_args()
-    none_fmt = PartialFormatter()
 
     currfile = None
     for f in getattr(args, 'cut-file'):
