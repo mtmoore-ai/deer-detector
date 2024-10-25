@@ -6,13 +6,14 @@ import ffmpeg
 import glob
 from os import path 
 import re
+import string
 import sys
 
 ffmpeg_params = { 'fps_to_image': 2 }
 outputdir = "/data/mtmoore/school/CSiML_AI395T/videos/cuts"
 res = {
        'file'     : re.compile(r"^(?P<file>\S+)\.mp4$"),
-       'cut'      : re.compile(r'^(?P<label>\w+)\s+(?P<cut1>[\d:]+)\s*(?P<cut2>[\d:]+)?\s*?(?P<note>.+)*?$')
+       'cut'      : re.compile(r'^(?P<label>\w+)\s+(?P<cut1>[\d:]+)\s*(?P<cut2>[\d:]+)?\s*(?P<note>.+)*?$')
       }
 videocache   = {}
 video_params = { 'codec_name': 'hevc',
@@ -20,7 +21,29 @@ video_params = { 'codec_name': 'hevc',
                  'width': 3840,
                  'avg_frame_rate': '10/1',
                }
-                          
+
+#https://stackoverflow.com/questions/20248355/how-to-get-python-to-gracefully-format-none-and-non-existing-fields
+class PartialFormatter(string.Formatter):
+    def __init__(self, missing='None', bad_fmt='!!'):
+        self.missing, self.bad_fmt=missing, bad_fmt
+
+    def get_field(self, field_name, args, kwargs):
+        # Handle a key not found
+        try:
+            val=super(PartialFormatter, self).get_field(field_name, args, kwargs)
+            # Python 3, 'super().get_field(field_name, args, kwargs)' works
+        except (KeyError, AttributeError):
+            val=None,field_name 
+        return val 
+
+    def format_field(self, value, spec):
+        # handle an invalid format
+        if value == None: return super(PartialFormatter, self).format_field(self.missing, spec)
+        try:
+            return super(PartialFormatter, self).format_field(value, spec)
+        except ValueError:
+            if self.bad_fmt is not None: return self.bad_fmt   
+            else: raise
 
 def count_existing_images(path_prefix: str ) -> int:
     max_seen = 0
@@ -86,8 +109,10 @@ def generate_ffmpeg_cut(file: str, videodir: str, params: dict) -> None:
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("cut-file", type=str, nargs='+', help="the cut files to generate ffmpeg commands for (camera_date_file.list)")
+    parser.add_argument("--dryrun", action='store_true', help="report cuts found in input file, don't generate images")
    
     args = parser.parse_args()
+    none_fmt = PartialFormatter()
 
     currfile = None
     for f in getattr(args, 'cut-file'):
@@ -107,7 +132,15 @@ if __name__=="__main__":
                             cut_params = m.groupdict()
                             cut_params['camera'] = camera
                             cut_params['date'] = date
-                            generate_ffmpeg_cut(file=currfile, videodir=videodir, params=cut_params)
+                            cut2s = cut_params['cut2'] if cut_params['cut2'] is not None else "None"
+                            if args.dryrun:
+                                print(f"{cut_params['camera']:<10s} {cut_params['label']:<12s} " +
+                                      f"{currfile:<30s} " +
+                                      f"{cut_params['cut1']:<6s} " +
+                                      f"{cut2s:<6s} " + 
+                                      f"{cut_params['note']}" )
+                            else:
+                               generate_ffmpeg_cut(file=currfile, videodir=videodir, params=cut_params)
                         nomatch = False
                 if nomatch:
                     print(f"*** WARN: skipped cut-file line in {f}: \"{line}\"")
