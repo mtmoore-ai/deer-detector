@@ -6,20 +6,20 @@ import ffmpeg
 from os import path 
 import pprint
 import re
+import sys
 
 ffmpeg_params = { 'fps_to_image': 2 }
 outputdir = "/data/mtmoore/school/CSiML_AI395T/videos/cuts"
 res = {
        'file'     : re.compile(r"^(?P<file>\S+)\.mp4$"),
-       'cut'      : re.compile(r'^(?P<label>\w+)\s+(?P<cut1>[\d:]+)\s*?(?P<cut2>[\d:]+)?\s*(?P<note>.+)?$')
+       'cut'      : re.compile(r'^(?P<label>\w+)\s+(?P<cut1>[\d:]+)\s*(?P<cut2>[\d:]+)?\s*?(?P<note>.+)*?$')
       }
-videocache = {}
-
-video_expected_params = { 'codec_name': 'hevc',
-                          'height': 2160,
-                          'width': 3840,
-                          'avg_frame_rate': '10/1',
-                        }
+videocache   = {}
+video_params = { 'codec_name': 'hevc',
+                 'height': 2160,
+                 'width': 3840,
+                 'avg_frame_rate': '10/1',
+               }
                           
 
 def generate_ffmpeg_cut(file: str, videodir: str, params: dict):
@@ -29,25 +29,26 @@ def generate_ffmpeg_cut(file: str, videodir: str, params: dict):
     duration = None
     starttime = None
 
+    pprint.pprint(params)
     # won't generate without at least one cut time
     if 'cut1' not in params:
         return
 
     cut1 = datetime.datetime.strptime(params['cut1'], '%M:%S')    
 
-    if 'cut2' in params:
-        cut2 = datetime.datetime.strptime(params['cut1'], "%M:%S")    
+    if 'cut2' in params and params['cut2'] is not None:
+        cut2 = datetime.datetime.strptime(params['cut2'], "%M:%S")    
         cduration = (cut2 - cut1).total_seconds()
     else:
-        c_duration = timedelta(seconds=2).total_seconds()
+        c_duration = datetime.timedelta(seconds=2).total_seconds()
 
     starttime = cut1.strftime("%M:%S")
-    duration = f"{cduration}"
+    duration = f"{int(cduration)}"
 
     # video file names start with hour field
     hour = file.split('.')[0]
     fullpath = path.join(videodir, hour, file + ".mp4" )
-
+    checks = True
     if fullpath not in videocache:
         print(f"{file=}, {videodir=}, {starttime=}, {duration=}")
         print(fullpath)
@@ -56,10 +57,27 @@ def generate_ffmpeg_cut(file: str, videodir: str, params: dict):
             print(f"**** ERROR: no streams found in file {fullpath}")
         for s in videocache[ fullpath ]['streams']:
             if s['codec_type'] == "video":
-                for k, v in video_expected_params.items():
+                for k, v in video_params.items():
                     if s[k] != v:
-                        print(f"**** ERROR: video stream param {k}: expected={v}, found={s[k]}")
+                        print(f"**** WARN: video stream param {k}: expected={v}, found={s[k]}, not creating images")
+                        checks = False
+    #if not checks:
+    #    print(f"**** ERROR: video checks didn't pass, skipping image creation to avoid unexpected data")
+    #    return
 
+    #print(params)
+    print()
+    output_string=path.join(outputdir, f"{params['camera']}_{params['date']}_{params['label']}_%08d.png")
+    print(f"cut: starttime: {starttime}, duration: {duration}")
+    #      .filter('fps', fps='1' ) \
+    out = ffmpeg.input( fullpath, ss=starttime, t = duration) \
+          .output(output_string, r=1) \
+          .run()
+    print(out)
+    sys.exit()
+    print()
+
+    # -r -f image2 -ss -t
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("cut-file", type=str, nargs='+', help="the cut files to generate ffmpeg commands for (camera_date_file.list)")
@@ -82,7 +100,12 @@ if __name__=="__main__":
                         if k == "file":
                             currfile = m["file"]
                         if k == "cut":
-                            generate_ffmpeg_cut(file=currfile, videodir=videodir, params=m.groupdict())
+                            cut_params = m.groupdict()
+                            print(f"parsed cut_params:")
+                            pprint.pprint(cut_params)
+                            cut_params['camera'] = camera
+                            cut_params['date'] = date
+                            generate_ffmpeg_cut(file=currfile, videodir=videodir, params=cut_params)
                         nomatch = False
                 if nomatch:
                     print(f"*** WARN: skipped line in {f}: \"{line}\"")
