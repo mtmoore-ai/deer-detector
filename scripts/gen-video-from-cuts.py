@@ -3,8 +3,8 @@
 import argparse
 import datetime
 import ffmpeg
+import glob
 from os import path 
-import pprint
 import re
 import sys
 
@@ -22,14 +22,25 @@ video_params = { 'codec_name': 'hevc',
                }
                           
 
-def generate_ffmpeg_cut(file: str, videodir: str, params: dict):
+def count_existing_images(path_prefix: str ) -> int:
+    max_seen = 0
+
+    # assumes format of file name camera_date_label_num.png
+    for f in glob.glob( path_prefix + "*" ):
+        fname = path.basename(f)
+        camera, date, label, number_ext = fname.split("_")
+        number, ext = number_ext.split(".")
+        if int(number) > max_seen:
+            max_seen = int(number)
+    return max_seen + 1
+
+def generate_ffmpeg_cut(file: str, videodir: str, params: dict) -> None:
 
     cduration = 0
     cut1, cut2 = None, None
     duration = None
     starttime = None
 
-    pprint.pprint(params)
     # won't generate without at least one cut time
     if 'cut1' not in params:
         return
@@ -50,8 +61,6 @@ def generate_ffmpeg_cut(file: str, videodir: str, params: dict):
     fullpath = path.join(videodir, hour, file + ".mp4" )
     checks = True
     if fullpath not in videocache:
-        print(f"{file=}, {videodir=}, {starttime=}, {duration=}")
-        print(fullpath)
         videocache[ fullpath ] = ffmpeg.probe(fullpath)
         if 'streams' not in videocache[ fullpath ]:
             print(f"**** ERROR: no streams found in file {fullpath}")
@@ -65,25 +74,20 @@ def generate_ffmpeg_cut(file: str, videodir: str, params: dict):
     #    print(f"**** ERROR: video checks didn't pass, skipping image creation to avoid unexpected data")
     #    return
 
-    #print(params)
-    print()
-    output_string=path.join(outputdir, f"{params['camera']}_{params['date']}_{params['label']}_%08d.png")
-    print(f"cut: starttime: {starttime}, duration: {duration}")
-    #      .filter('fps', fps='1' ) \
-    out = ffmpeg.input( fullpath, ss=starttime, t = duration) \
-          .output(output_string, r=1) \
-          .run()
-    print(out)
-    sys.exit()
-    print()
+    # get the current image count of camera_date_label_X.png format so we don't overwrite
+    output_prefix = path.join(outputdir, f"{params['camera']}_{params['date']}_{params['label']}_")
+    next_start= count_existing_images( output_prefix )
+    output_string = f"{output_prefix}%08d.png"
 
-    # -r -f image2 -ss -t
+    out = ffmpeg.input( fullpath, ss=starttime, t = duration) \
+          .output(output_string, r=1, start_number=next_start ) \
+          .run(quiet=True)
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("cut-file", type=str, nargs='+', help="the cut files to generate ffmpeg commands for (camera_date_file.list)")
    
     args = parser.parse_args()
-    print(args)
 
     currfile = None
     for f in getattr(args, 'cut-file'):
@@ -101,11 +105,9 @@ if __name__=="__main__":
                             currfile = m["file"]
                         if k == "cut":
                             cut_params = m.groupdict()
-                            print(f"parsed cut_params:")
-                            pprint.pprint(cut_params)
                             cut_params['camera'] = camera
                             cut_params['date'] = date
                             generate_ffmpeg_cut(file=currfile, videodir=videodir, params=cut_params)
                         nomatch = False
                 if nomatch:
-                    print(f"*** WARN: skipped line in {f}: \"{line}\"")
+                    print(f"*** WARN: skipped cut-file line in {f}: \"{line}\"")
