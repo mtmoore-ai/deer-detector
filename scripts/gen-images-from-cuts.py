@@ -23,10 +23,11 @@ video_params = { 'codec_name': 'hevc',
                }
 
 def fixup_cut_time( time:str ) -> str:
-    nums = time.split(':')
 
     if time is None:
         return None
+
+    nums = time.split(':')
 
     for n in nums:
         try:
@@ -136,6 +137,7 @@ if __name__=="__main__":
                         currfile = m["file"]
                         videodir = path.dirname(currfile)
                         filename = path.basename(currfile)
+                        print(videodir)
                         camera, date = videodir.split('/')
                     if k == "cut":
                         cut_params = m.groupdict()
