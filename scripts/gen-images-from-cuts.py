@@ -72,7 +72,7 @@ def generate_ffmpeg_cut(file: str, params: dict) -> None:
         cut2 = datetime.datetime.strptime(params['cut2'], "%H:%M:%S")    
         cduration = (cut2 - cut1).total_seconds()
     else:
-        c_duration = datetime.timedelta(seconds=2).total_seconds()
+        c_duration = 2 
 
     starttime = cut1.strftime("%H:%M:%S")
     duration = f"{int(cduration)}"
