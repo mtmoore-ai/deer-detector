@@ -57,7 +57,7 @@ def count_existing_images(path_prefix: str ) -> int:
 
 def generate_ffmpeg_cut(file: str, params: dict) -> None:
 
-    cduration = 0
+    cduration = 2
     cut1, cut2 = None, None
     duration = None
     starttime = None
@@ -71,8 +71,6 @@ def generate_ffmpeg_cut(file: str, params: dict) -> None:
     if 'cut2' in params and params['cut2'] is not None:
         cut2 = datetime.datetime.strptime(params['cut2'], "%H:%M:%S")    
         cduration = (cut2 - cut1).total_seconds()
-    else:
-        c_duration = 2 
 
     starttime = cut1.strftime("%H:%M:%S")
     duration = f"{int(cduration)}"
@@ -125,6 +123,7 @@ if __name__=="__main__":
     parser.add_argument("--dryrun", action='store_true', help="report cuts found in input file, don't generate images")
    
     args = parser.parse_args()
+    img_count_estimate = 0
 
     if not path.isdir(outputdir):
         print(f"specified output directory, {outputdir}, doesn't exist. Exiting")
@@ -133,6 +132,9 @@ if __name__=="__main__":
     currfile = None
     for f in getattr(args, 'cut-file'):
         for line in f:
+            if line == "\n":
+                continue
+
             nomatch = True
             for k,v in res.items():
                 m = v.match(line)
@@ -152,14 +154,27 @@ if __name__=="__main__":
                             sys.exit(1)
                         cut_params['cut2'] = fixup_cut_time( cut_params['cut2'] )
                         cut2s = cut_params['cut2'] if cut_params['cut2'] is not None else "None"
+
+                        ## print a report for the dryrun 
                         if args.dryrun:
+                            cut1 = datetime.datetime.strptime(cut_params['cut1'], '%H:%M:%S')
+                            cduration = 2
+                            if 'cut2' in cut_params and cut_params['cut2'] is not None:
+                                cut2 = datetime.datetime.strptime(cut_params['cut2'], "%H:%M:%S")    
+                                cduration = (cut2 - cut1).total_seconds()
+                            
+                            img_count_estimate = img_count_estimate + cduration
                             print(f"{cut_params['camera']:<10s} {cut_params['label']:<12s} " +
                                   f"{currfile:<30s} " +
-                                  f"{cut_params['cut1']:<6s} " +
-                                  f"{cut2s:<6s} " + 
+                                  f"{cut_params['cut1']:<8s} " +
+                                  f"{cut2s:<8s} " + 
+                                  f"{cduration} " +
                                   f"{cut_params['note']}" )
                         else:
                            generate_ffmpeg_cut(file=currfile, params=cut_params)
                     nomatch = False
             if nomatch:
-                print(f"*** WARN: skipped cut-file line in {f}: \"{line}\"")
+                print(f"*** WARN: skipped cut-file line: \"{line}\"")
+
+    if args.dryrun:
+        print(f"estimated image count: {img_count_estimate}")
