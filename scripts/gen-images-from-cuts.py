@@ -8,8 +8,8 @@ from os import path
 import re
 import string
 import sys
+from tqdm import tqdm
 
-ffmpeg_params = { 'fps_to_image': 2 }
 outputdir = "/data/mtmoore/school/CSiML_AI395T/videos/cuts"
 res = {
        'file'     : re.compile(r"^(?P<file>[\S]+\.mp4)$"),
@@ -76,8 +76,8 @@ def generate_ffmpeg_cut(file: str, params: dict) -> None:
     duration = f"{int(cduration)}"
 
     if cduration <= 0:
-        print(f"**** WARN: confusing duration: {duration}, from cut1: {params['cut1']}, cut2: {params['cut2']}")
-
+        print(f"**** WARN: confusing duration: {duration}, from cut1: {params['cut1']}, cut2: {params['cut2']}", file=sys.stderr)
+        return
     checks = True
     if file not in videocache:
         try: 
@@ -89,15 +89,15 @@ def generate_ffmpeg_cut(file: str, params: dict) -> None:
 
         
         if 'streams' not in videocache[ file ]:
-            print(f"**** ERROR: no streams found in file {file}")
+            print(f"**** ERROR: no streams found in file {file}", file=sys.stderr)
         for s in videocache[ file ]['streams']:
             if s['codec_type'] == "video":
                 for k, v in video_params.items():
                     if s[k] != v:
-                        print(f"**** WARN: video stream param {k}: expected={v}, found={s[k]}, not creating images")
+                        print(f"**** WARN: video stream param {k}: expected={v}, found={s[k]}, not creating images", file=sys.stderr)
                         checks = False
     if not checks:
-        print(f"**** ERROR: video checks didn't pass, skipping image creation to avoid unexpected data")
+        print(f"**** ERROR: video checks didn't pass, skipping image creation to avoid unexpected data", file=sys.stderr)
         return
 
     # get the current image count of camera_date_label_X.png format so we don't overwrite
@@ -131,7 +131,9 @@ if __name__=="__main__":
 
     currfile = None
     for f in getattr(args, 'cut-file'):
-        for line in f:
+        lines = f.readlines()
+        for line in tqdm(lines, desc=f"Bursting from cuts in {f.name}") if not args.dryrun else lines:
+        #for line in f:
             if line == "\n":
                 continue
 
@@ -174,7 +176,7 @@ if __name__=="__main__":
                            generate_ffmpeg_cut(file=currfile, params=cut_params)
                     nomatch = False
             if nomatch:
-                print(f"*** WARN: skipped cut-file line: \"{line}\"")
+                print(f"*** WARN: skipped cut-file line: \"{line}\"", file=sys.stderr)
 
     if args.dryrun:
         print(f"estimated image count: {img_count_estimate}")
