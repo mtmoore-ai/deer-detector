@@ -19,6 +19,7 @@ videocache   = {}
 video_params = { 'codec_name': 'hevc',
                  'height': 2160,
                  'width': 3840,
+                 'r_frame_rate': '10/1',
                }
 
 def fixup_cut_time( time:str ) -> str:
