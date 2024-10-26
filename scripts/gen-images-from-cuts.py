@@ -106,13 +106,18 @@ def generate_ffmpeg_cut(file: str, params: dict) -> None:
     next_start= count_existing_images( output_prefix )
     output_string = f"{output_prefix}%08d.png"
 
-    out = ffmpeg.input( file, ss=starttime, t = duration) \
-          .output(output_string, r=1, start_number=next_start ) \
-          .run(quiet=True)
-    after_burst = count_existing_images( output_prefix )
-    for i in range(next_start, after_burst):
-        print(f"{params['camera']}_{params['date']}_{params['label']}_{i:08d}.png {params['camera']} {params['date']} {params['label']} \"{params['note']}\"")
-
+    try:
+        out = ffmpeg.input( file, ss=starttime, t = duration) \
+              .output(output_string, r=1, start_number=next_start ) \
+              .run(quiet=True)
+        after_burst = count_existing_images( output_prefix )
+        for i in range(next_start, after_burst):
+            print(f"{params['camera']}_{params['date']}_{params['label']}_{i:08d}.png {params['camera']} {params['date']} {params['label']} \"{params['note']}\"")
+    except ffmpeg.Error as e:
+        print(f"error when trying to burst {file} with {starttime=}, {duration=}")
+        #print('ffprobe failure/stdout:', e.stdout.decode('utf8'), file=sys.stderr)
+        print('ffprobe failure/stderr:', e.stderr.decode('utf8'), file=sys.stderr)
+        return
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("cut-file",  type=argparse.FileType('r'), nargs='+', help="the cut files to generate ffmpeg commands for (camera_date_file.list)")
