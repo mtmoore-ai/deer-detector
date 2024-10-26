@@ -126,6 +126,10 @@ if __name__=="__main__":
    
     args = parser.parse_args()
 
+    if not path.isdir(outputdir):
+        print(f"specified output directory, {outputdir}, doesn't exist. Exiting")
+        sys.exit(1)
+
     currfile = None
     for f in getattr(args, 'cut-file'):
         for line in f:
@@ -137,7 +141,6 @@ if __name__=="__main__":
                         currfile = m["file"]
                         videodir = path.dirname(currfile)
                         filename = path.basename(currfile)
-                        print(videodir)
                         camera, date = videodir.split('/')
                     if k == "cut":
                         cut_params = m.groupdict()
