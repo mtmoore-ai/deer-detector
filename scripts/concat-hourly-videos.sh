@@ -19,6 +19,13 @@ wd="$(pwd)"
 readarray -t cameras < $CAMERA_FILE
 
 for c in "${cameras[@]}"; do
+    if [[ "${c}" == *"#"* ]]; then
+        echo "Skipping commented camera ${c}"
+        continue
+    else 
+        echo "Processing camera ${c}: "
+        continue
+    fi
     echo "Processing camera ${c}: "
  
     # top-level directory of camera videos, children must be date based directories
@@ -58,4 +65,4 @@ for c in "${cameras[@]}"; do
         done
     done
 done
-rm inputs.txt
+rm inputs.txt 2>/dev/null
