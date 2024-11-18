@@ -22,9 +22,6 @@ for c in "${cameras[@]}"; do
     if [[ "${c}" == *"#"* ]]; then
         echo "Skipping commented camera ${c}"
         continue
-    else 
-        echo "Processing camera ${c}: "
-        continue
     fi
     echo "Processing camera ${c}: "
  
@@ -55,7 +52,7 @@ for c in "${cameras[@]}"; do
             if [ -f ${d}/${curr_date}_${curr_hour}.mp4 ]; then
                 continue;
             fi
-            ffmpeg -f concat -safe 0 -i inputs.txt -c copy ${d}/${curr_date}_${curr_hour}.mp4 >/dev/null 2>&1
+            ffmpeg -f concat -safe 0 -i inputs.txt -c copy ${d}/${curr_date}_${curr_hour}.mp4 2>&1 | tee ffmpeg.log
 
             # bail if something failed unexpectedly (ie bad video file)
             if [ "$?" -ne "0" ]; then

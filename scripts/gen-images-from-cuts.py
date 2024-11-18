@@ -10,13 +10,13 @@ import string
 import sys
 from tqdm import tqdm
 
-outputdir = "/data/mtmoore/school/CSiML_AI395T/videos/cuts"
+outputdir = "/data/mtmoore/school/CSiML_AI395T/videos/cuts/test-set-all-images"
 res = {
        'file'     : re.compile(r"^(?P<file>[\S]+\.mp4)$"),
        'cut'      : re.compile(r'^(?P<label>\w+)\s+(?P<cut1>[\d:]+)\s*(?P<cut2>[\d:]+)?\s*(?P<note>.+)*?$')
       }
 videocache   = {}
-video_params = { 'codec_name': 'hevc',
+video_params = { 'codec_name': 'h264',
                  'height': 2160,
                  'width': 3840,
                  'r_frame_rate': '10/1',
@@ -43,6 +43,7 @@ def fixup_cut_time( time:str ) -> str:
     else:
         print(f"unexpected number of entries in time, seems invalid: {time}")
         return None
+
 def count_existing_images(path_prefix: str ) -> int:
     max_seen = 0
 
@@ -111,7 +112,8 @@ def generate_ffmpeg_cut(file: str, params: dict) -> None:
               .run(quiet=True)
         after_burst = count_existing_images( output_prefix )
         for i in range(next_start, after_burst):
-            print(f"{params['camera']}_{params['date']}_{params['label']}_{i:08d}.png {params['camera']} {params['date']} {params['label']} \"{params['note']}\"")
+            if not args.no_print:
+                print(f"{params['camera']}_{params['date']}_{params['label']}_{i:08d}.png {params['camera']} {params['date']} {params['label']} \"{params['note']}\"")
     except ffmpeg.Error as e:
         print(f"error when trying to burst {file} with {starttime=}, {duration=}")
         #print('ffprobe failure/stdout:', e.stdout.decode('utf8'), file=sys.stderr)
@@ -121,6 +123,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("cut-file",  type=argparse.FileType('r'), nargs='+', help="the cut files to generate ffmpeg commands for (camera_date_file.list)")
     parser.add_argument("--dryrun", action='store_true', help="report cuts found in input file, don't generate images")
+    parser.add_argument("--no-print", action='store_true', help="don't report cuts")
    
     args = parser.parse_args()
     img_count_estimate = 0
@@ -145,6 +148,7 @@ if __name__=="__main__":
                         currfile = m["file"]
                         videodir = path.dirname(currfile)
                         filename = path.basename(currfile)
+                        #print(f"{videodir=}, {filename=}")
                         camera, date = videodir.split('/')
                     if k == "cut":
                         cut_params = m.groupdict()

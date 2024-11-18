@@ -5,7 +5,7 @@ import pprint
 import sys
 
 
-video_params = { 'codec_name': 'hevc',
+video_params = { 'codec_name': 'h264',
                  'height': 2160,
                  'width': 3840,
                  'r_frame_rate': '10/1',

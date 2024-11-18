@@ -1,13 +1,14 @@
 #!/bin/bash
 
-if [ "$#" -ne "2" ]; then
-    echo "usage: $0 full-path-to-all-images relative-path-in-zip-to-label-txts"
+if [ "$#" -lt "2" ]; then
+    echo "usage: $0 full-path-to-all-images relative-path-in-zip-to-label-txts <filterin>"
     echo "$# arguments passed instead of 2"
     exit
 fi
 
 orig_img_location="$1"
 orig_label_dir="$2"
+filter_in="$3"
 
 # if the dataset contents are already in the directory
 # don't remove labels and images
@@ -27,11 +28,20 @@ fi
 mkdir -p {train,val}/{images,labels}
 
 ls ${orig_label_dir}/ > tmp.labels
+
+if [ -n "${filter_in}" ]; then
+    echo "Filtering in paths with \"${filter_in}\""
+    grep "${filter_in}" tmp.labels > tmp.filter
+    mv tmp.filter tmp.labels
+fi
+
 sed -i 's/txt/png/' tmp.labels
 shuf tmp.labels > tmp.shuf.labels
 all_count=$(cat tmp.shuf.labels | wc -l)
-train_count=$(echo "($all_count * 0.8)/1" | bc)
-val_count=$((all_count - train_count))
+#train_count=$(echo "($all_count * 0.8)/1" | bc)
+#val_count=$((all_count - train_count))
+train_count=0
+val_count=$all_count
 echo "${all_count} labels, ${train_count} to train, ${val_count} to val"
 
 head -n ${train_count} tmp.shuf.labels > train.txt
