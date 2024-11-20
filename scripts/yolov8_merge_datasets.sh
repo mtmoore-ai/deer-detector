@@ -24,7 +24,7 @@ mkdir -p ${dest}/{train,val}/{images,labels}
 for d in "$src1" "$src2"; do
     for s in "train" "val"; do
         for i in "images" "labels"; do
-            cp -a ${d}/${s}/${i} ${dest}/${s}/${i}
+            cp -a ${d}/${s}/${i}/* ${dest}/${s}/${i}/
         done
         cat ${d}/${s}.txt >> ${dest}/${s}.txt
     done

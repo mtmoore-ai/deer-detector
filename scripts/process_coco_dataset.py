@@ -12,19 +12,23 @@ SPLIT_NAMES=["train", "val"]
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--annotation-file",  type=str, default="annotations/instances_default.json", 
-                                              help="json formatted annotation")
+    parser.add_argument("--annotation-file", type=str, default="annotations/instances_default.json",
+                        help="relative path to json formatted annotation within dataset")
+    parser.add_argument("--dataset-path", type=str, default="dataset", help="dataset path")
     parser.add_argument("--start-id", type=int, default=0, help="id to start keeping, default=0")
     parser.add_argument("--end-id", type=int, default=None, help="last id to include, default=-1, end of ids")
+    parser.add_argument("--filter", type=str, default=None, help="string to include/exclude with image name with filter-op flag")
+    parser.add_argument("--filter-op", type=str, default=None, choices=['include', 'exclude', None], 
+                        help="string to include/exclude with filter-op flag happens after start/end id contraint")
     parser.add_argument("--new-path", type=str, default="new_dataset", help="new directory with processed annotations")
     parser.add_argument("--print-file-names", action="store_true", help="print image file names for valid images")
-    parser.add_argument("--create-split", type=float, default=0.8, help="create a train/val split with train %, default 80%")
-    parser.add_argument("--no-reset-image-paths", action="store_true", help="reset image paths, default is yes")
-    parser.add_argument("--move-images", action="store_true", help="Move image files to new location, default to copy")
+    parser.add_argument("--create-split", type=float, default=0.8, help="create a train/val split with train,, default 0.8")
+    parser.add_argument("--no_reset_image_paths", action="store_true", help="reset image paths, default is yes")
+    parser.add_argument("--move_images", action="store_true", help="Move image files to new location, default to copy")
     args = parser.parse_args()
 
     # make sure annotation file exists
-    if not os.path.exists( args.annotation_file ):
+    if not os.path.exists( os.path.join(args.dataset_path, args.annotation_file) ):
        print("provided annotation file doesn't exist")
        sys.exit(1)
 
@@ -42,7 +46,7 @@ if __name__=="__main__":
     # ugly way to get the name of the original split source which is probably just default
     orig_split_name = os.path.basename(args.annotation_file).split("_")[1].split(".")[0]
     # read in current annotation file
-    with open(args.annotation_file) as f:
+    with open(os.path.join(args.dataset_path, args.annotation_file)) as f:
         records = json.load(f)
 
         # get list of image id's 
@@ -51,6 +55,21 @@ if __name__=="__main__":
         # get list of image id's we want to keep
         keep_images = imgs[args.start_id:args.end_id]
 
+        # here is where we can filter reasonably 
+        if args.filter is not None and args.filter_op is not None:
+            filter_images = []
+            for img in records['images']:
+                # honor the list of image ids based on range
+                if img['id'] not in keep_images:
+                    continue
+
+                if args.filter_op == "include":
+                    if args.filter in img['file_name']:
+                        filter_images.append(img['id'])
+                if args.filter_op == "exclude":
+                    if args.filter not in img['file_name']:
+                        filter_images.append(img['id'])
+            keep_images = filter_images
 
         # create dict to hold id -> split name mapping
         split_ids = {}
@@ -61,10 +80,11 @@ if __name__=="__main__":
         # assume two splits, the first one gets the float arg as a percent of total
         # the remainder goes in the other
         start=0
-        for s in SPLIT_NAMES:
-            if start == 0:
+        print(f"{len(keep_images)=}")
+        for i, s in enumerate(SPLIT_NAMES):
+            if i == 0:
                 split_ids = { k: s for k in keep_images[: int( len(keep_images)* args.create_split) ] }
-                start = len(split_ids)-1
+                start = max(0, len(split_ids)-1)
                 print(f"{s} split, {len(split_ids)} images")
             else:
                 other_split = { k: s for k in keep_images[start:] }
@@ -95,7 +115,7 @@ if __name__=="__main__":
                     if not os.path.exists(new_full_dir):
                         os.makedirs( new_full_dir )
                     
-                    full_orig_path = os.path.join("images", orig_split_name, orig_img_path)
+                    full_orig_path = os.path.join(args.dataset_path, "images", orig_split_name, orig_img_path)
                     new_full_path = os.path.join(new_full_dir, fname)
                     if args.move_images:
                         shutil.rename(full_orig_path, new_full_path)
@@ -107,8 +127,8 @@ if __name__=="__main__":
                 new_records[ current_split ]['images'].append( img )
 
         for ann in records['annotations']:
-            if ann['id'] in split_ids:
-                current_split = split_ids[ img['id'] ]
+            if ann['image_id'] in split_ids:
+                current_split = split_ids[ ann['image_id'] ]
                 new_records[ current_split ]['annotations'].append( ann )
 
     if args.new_path is not None:
@@ -120,5 +140,5 @@ if __name__=="__main__":
 
             new_json_path = os.path.join(args.new_path, "annotations", f"instances_{s}.json")
             with open(new_json_path, mode='w') as nf:
-                nf.write(json.dumps(records))
+                nf.write(json.dumps(new_records[s]))
                 nf.close()
