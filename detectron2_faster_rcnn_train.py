@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# based on example in https://colab.research.google.com/drive/16jcaJoc6bCFAQ96jDe2HwtXj7BMD_-m5
+
 import argparse, os, json
 import torch, detectron2
 import matplotlib as mpl
