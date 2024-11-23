@@ -80,7 +80,8 @@ if __name__=="__main__":
 
 
     for epoch in range(99, 5000, 100):
-        odir = os.path.join(args.output_dir, f"{args.model}_{args.dataset}_{epoch+1}epochs-val")
+        #odir = os.path.join(args.output_dir, f"{args.model}_{args.dataset}_{epoch+1}epochs-val")
+        odir = os.path.join(args.output_dir, f"{args.model}_{args.dataset}_{epoch+1}epochs-val1")
  
         if os.path.exists(odir) and os.path.exists(os.path.join(odir, "metrics.json")):
             print(f"Validation output exists with metrics: {odir}")

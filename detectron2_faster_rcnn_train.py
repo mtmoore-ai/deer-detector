@@ -42,7 +42,7 @@ from detectron2.evaluation import COCOEvaluator, inference_on_dataset
 from detectron2.data import build_detection_test_loader
 from detectron2.engine import DefaultTrainer
 from detectron2.utils.events import get_event_storage
-attempt=0
+attempt=1
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
@@ -66,7 +66,7 @@ if __name__=="__main__":
     cfg.DATASETS.TEST = ()
     cfg.DATALOADER.NUM_WORKERS = 8
     cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(f"COCO-Detection/{args.model}.yaml")  # Let training initialize from model zoo
-    cfg.SOLVER.IMS_PER_BATCH = 6  # This is the real "batch size" commonly known to deep learning people
+    cfg.SOLVER.IMS_PER_BATCH = 8  # This is the real "batch size" commonly known to deep learning people
     cfg.SOLVER.BASE_LR = 0.00025  # pick a good LR
     cfg.SOLVER.MAX_ITER = 5000    # 300 iterations seems good enough for this toy dataset; you will need to train longer for a practical dataset
     cfg.SOLVER.STEPS = []        # do not decay learning rate

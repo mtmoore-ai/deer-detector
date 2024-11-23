@@ -49,22 +49,24 @@ if __name__=="__main__":
 
     parser.add_argument("--model", type=str, required=True, help="model name from model zoo, located in Coco_Detection directory")
     parser.add_argument("--model-dir", type=str, required=True, help="dir where model is loaded")
-    parser.add_argument("--dataset", type=str, required=True, help="dataset name, located in dataset-dir")
-    parser.add_argument("--dataset-dir", type=str, required=True, help="dataset directory, parent of where dataset should be found")
+    parser.add_argument("--train-dataset-dir", type=str, required=True, help="dir where model is loaded")
+    parser.add_argument("--train-dataset-name", type=str, required=True, help="train dataset name")
+    parser.add_argument("--test-dataset", type=str, required=True, help="dataset name")
+    parser.add_argument("--test-dataset-dir", type=str, required=True, help="dataset directory, parent of where dataset should be found")
     parser.add_argument("--output-dir", type=str, required=True, help="location for model outputs")
     args = parser.parse_args()
     
     print(args)
-    dataset_dir=os.path.join(args.dataset_dir, f"{args.dataset}_coco")
-    annotation_dir=os.path.join(dataset_dir, "annotations")
+    annotation_dir=os.path.join(args.test_dataset_dir, "annotations")
 
-    register_coco_instances(f"{args.dataset}_train", {}, os.path.join(annotation_dir, "instances_train.json"), dataset_dir)
-    register_coco_instances(f"{args.dataset}_val", {}, os.path.join(annotation_dir, "instances_val.json"),   dataset_dir)
+    register_coco_instances(f"{args.train_dataset_name}_train", {}, os.path.join(args.train_dataset_dir, annotation_dir, "instances_train.json"), args.train_dataset_dir)
+    register_coco_instances(f"{args.test_dataset}_val", {}, os.path.join(annotation_dir, "instances_val.json"),   args.test_dataset_dir)
 
     print(args)
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(f"COCO-Detection/{args.model}.yaml"))
-    cfg.DATASETS.TRAIN = (f"{args.dataset}_train",)
+    #cfg.DATASETS.TRAIN = (f"{args.train_dataset_name}_train",)
+    cfg.DATASETS.TRAIN = (f"{args.test_dataset}_val",)
     cfg.DATASETS.TEST = ()
     cfg.DATALOADER.NUM_WORKERS = 8
     cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(f"COCO-Detection/{args.model}.yaml")  # Let training initialize from model zoo
@@ -78,23 +80,21 @@ if __name__=="__main__":
     cfg.SOLVER.CHECKPOINT_PERIOD = 100
     #cfg.OUTPUT_DIR = f"{args.output_dir}/{args.model}_{args.dataset}_{cfg.SOLVER.IMS_PER_BATCH}batch_512RoI_{attempt}"
 
+    odir = os.path.join(args.output_dir, f"{args.model}_{args.train_dataset_name}_{args.test_dataset}_final-val")
+ 
+    if os.path.exists(odir) and os.path.exists(os.path.join(odir, "metrics.json")):
+        print(f"Validation output exists with metrics: {odir}")
+        sys.exit(1)
 
-    for epoch in range(99, 5000, 100):
-        odir = os.path.join(args.output_dir, f"{args.model}_{args.dataset}_{epoch+1}epochs-val")
- 
-        if os.path.exists(odir) and os.path.exists(os.path.join(odir, "metrics.json")):
-            print(f"Validation output exists with metrics: {odir}")
-            continue
- 
-        cfg.MODEL.WEIGHTS = os.path.join(args.model_dir, f"model_{epoch:07d}.pth")  # path to the model we just trained
-        trainer = DefaultTrainer(cfg)
-        trainer.resume_or_load(resume=False)
-        evaluator = COCOEvaluator(f"{args.dataset}_val", ("bbox",), False, output_dir=odir)
-        val_loader = build_detection_test_loader(cfg, f"{args.dataset}_val")
-        eval_result = inference_on_dataset(trainer.model, val_loader, evaluator)
+    cfg.MODEL.WEIGHTS = os.path.join(args.model_dir, f"model_final.pth")  # path to the model we just trained
+    trainer = DefaultTrainer(cfg)
+    trainer.resume_or_load(resume=False)
+    evaluator = COCOEvaluator(f"{args.test_dataset}_val", ("bbox",), False, output_dir=odir)
+    val_loader = build_detection_test_loader(cfg, f"{args.test_dataset}_val")
+    eval_result = inference_on_dataset(trainer.model, val_loader, evaluator)
         #cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set a custom testing threshold
         #predictor = DefaultPredictor(cfg)
-
-        with open(os.path.join(odir, "metrics.json"), "w") as o:
-            o.write(json.dumps(eval_result))
-        print(eval_result)
+    eval_result['model_path'] = args.model_dir
+    with open(os.path.join(odir, "metrics.json"), "w") as o:
+        o.write(json.dumps(eval_result))
+    print(eval_result)
